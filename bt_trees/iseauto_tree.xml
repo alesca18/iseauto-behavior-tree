@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="3" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Fallback name="ApolloStraightSafetyDecision">
+      
+      <!-- PRIORITA 1: ARRESTO E FRENA AD OCCORRENZA -->
+      <Sequence name="ApolloObstacleTask">
+        <ApolloPathObstacleCheck threshold="30.0"/>
+        <ApolloStopTask duration="1.2"/>
+        <ApolloEmergencyStop/>
+      </Sequence>
+
+      <!-- PRIORITA 2: GUIDA RIGOROSAMENTE DRITTA -->
+      <Sequence name="ApolloStraightDriveTask">
+        <ApolloStraightDrive/>
+      </Sequence>
+
+    </Fallback>
+  </BehaviorTree>
+</root>

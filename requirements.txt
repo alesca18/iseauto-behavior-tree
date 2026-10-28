@@ -1,0 +1,7 @@
+# MetaDrive >= 0.4 si installa da GitHub (la 0.2.6 su PyPI e' troppo vecchia)
+metadrive-simulator @ git+https://github.com/metadriverse/metadrive.git
+stable-baselines3
+gymnasium
+tensorboard
+# con ROS 2 Humble: i messaggi Python sono compilati contro NumPy 1.x
+numpy<2

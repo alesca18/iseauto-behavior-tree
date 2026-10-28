@@ -1,0 +1,60 @@
+name: build-and-test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ros2-humble:
+    runs-on: ubuntu-22.04
+    container: ros:humble
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src/iseauto_bt
+
+      - name: Dipendenze di sistema
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ros-humble-behaviortree-cpp-v3 python3-pip git
+
+      - name: Dipendenze Python (MetaDrive da GitHub, Stable Baselines 3)
+        run: |
+          # torch solo CPU (evita ~2.5 GB di CUDA); numpy<2 perche' i messaggi ROS 2 Humble
+          # sono compilati contro NumPy 1.x
+          pip3 install torch --index-url https://download.pytorch.org/whl/cpu
+          pip3 install "numpy<2" "git+https://github.com/metadriverse/metadrive.git" stable-baselines3 tensorboard
+          python3 -c "from metadrive.envs import MetaDriveEnv; print('MetaDrive ok')"
+
+      - name: colcon build
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --packages-select iseauto_bt --event-handlers console_direct+
+
+      - name: Test senza ROS (bridge reale + replica della logica del BT)
+        run: |
+          cd src/iseauto_bt
+          python3 test/sim_senza_ros.py scripts 20
+
+      - name: Test di integrazione ROS 2 (brain_node C++ + bridge)
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          bash src/iseauto_bt/test/ros_integration_test.sh 10
+
+      - name: PPO, prova rapida di addestramento e valutazione
+        run: |
+          cd src/iseauto_bt
+          python3 scripts/train_ppo.py --episodes 5 --out /tmp/ppo_smoke
+          python3 scripts/eval_ppo.py --model /tmp/ppo_smoke --episodes 3
+
+      - name: PPO, valutazione del modello da 600k passi
+        # salvato con Python 3.14 / SB3 2.9.2: il caricamento su Python 3.10 potrebbe non riuscire
+        continue-on-error: true
+        run: |
+          cd src/iseauto_bt
+          python3 scripts/eval_ppo.py --model models/ppo_iseauto_600k --episodes 10

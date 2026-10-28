@@ -1,0 +1,97 @@
+#include <memory>
+#include <chrono>
+#include <atomic>
+#include <iostream>
+#include <string>
+
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/float32.hpp"
+#include "geometry_msgs/msg/twist.hpp"
+
+#include "behaviortree_cpp_v3/behavior_tree.h"
+#include "behaviortree_cpp_v3/bt_factory.h"
+
+using namespace std::chrono_literals;
+
+std::atomic<float> g_closest_obstacle{999.0f};
+
+// Node 1: ApolloPathObstacleCheck
+class ApolloPathObstacleCheck : public BT::ConditionNode {
+public:
+    ApolloPathObstacleCheck(const std::string& name, const BT::NodeConfiguration& config)
+        : BT::ConditionNode(name, config) {}
+
+    static BT::PortsList providedPorts() {
+        return { BT::InputPort<double>("threshold") };
+    }
+
+    BT::NodeStatus tick() override {
+        double thresh = 30.0;
+        getInput("threshold", thresh);
+        float current_dist = g_closest_obstacle.load();
+        if (current_dist < thresh) {
+            return BT::NodeStatus::SUCCESS;
+        }
+        return BT::NodeStatus::FAILURE;
+    }
+};
+
+// Node 2: ApolloStopTask
+class ApolloStopTask : public BT::StatefulActionNode {
+public:
+    ApolloStopTask(const std::string& name, const BT::NodeConfiguration& config)
+        : BT::StatefulActionNode(name, config) {}
+
+    static BT::PortsList providedPorts() {
+        return { BT::InputPort<double>("duration") };
+    }
+
+    BT::NodeStatus onStart() override {
+        return BT::NodeStatus::RUNNING;
+    }
+
+    BT::NodeStatus onRunning() override {
+        float dist = g_closest_obstacle.load();
+        if (dist <= 5.0f) {
+            return BT::NodeStatus::SUCCESS;
+        }
+        return BT::NodeStatus::RUNNING;
+    }
+
+    void onHalted() override {}
+};
+
+// Node 3: ApolloEmergencyStop
+class ApolloEmergencyStop : public BT::SyncActionNode {
+public:
+    ApolloEmergencyStop(const std::string& name, const BT::NodeConfiguration& config)
+        : BT::SyncActionNode(name, config) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
+// Node 4: ApolloStraightDrive
+class ApolloStraightDrive : public BT::SyncActionNode {
+public:
+    ApolloStraightDrive(const std::string& name, const BT::NodeConfiguration& config)
+        : BT::SyncActionNode(name, config) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
+int main(int argc, char** argv) {
+    rclcpp::init(argc, argv);
+    auto node = rclcpp::Node::make_shared("brain_node");
+    
+    RCLCPP_INFO(node->get_logger(), "ISEAuto Brain Node (v1) Started");
+    rclcpp::shutdown();
+    return 0;
+}

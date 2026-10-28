@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>iseauto_bt</name>
+  <version>1.0.0</version>
+  <description>Shuttle iseAuto: Behavior Tree C++ (Milestone v1) su ROS 2 Humble con simulatore MetaDrive</description>
+  <maintainer email="alesca18@gmail.com">alesc</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>behaviortree_cpp_v3</depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
