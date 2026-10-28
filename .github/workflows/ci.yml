@@ -56,8 +56,6 @@ jobs:
           python3 scripts/eval_ppo.py --model /tmp/ppo_smoke --episodes 3
 
       - name: PPO, valutazione del modello da 600k passi
-        # salvato con Python 3.14 / SB3 2.9.2: il caricamento su Python 3.10 potrebbe non riuscire
-        continue-on-error: true
         run: |
           cd src/iseauto_bt
           python3 scripts/eval_ppo.py --model models/ppo_iseauto_600k --episodes 10

@@ -20,7 +20,14 @@ def main():
     args = parser.parse_args()
 
     env = IseAutoEnv(make_config(render=args.render, seed=args.seed, num_scenarios=args.episodes))
-    model = PPO.load(args.model)
+    # Spazi e schedule ricostruiti invece che letti dal pickle: cosi' un modello salvato
+    # con NumPy 2 si carica anche con NumPy 1 (ROS 2 Humble) e viceversa.
+    model = PPO.load(args.model, device="cpu", custom_objects={
+        "observation_space": env.observation_space,
+        "action_space": env.action_space,
+        "lr_schedule": lambda _: 0.0,
+        "clip_range": lambda _: 0.2,
+    })
 
     collisions, rewards, infer_ms = 0, [], []
     for ep in range(args.episodes):

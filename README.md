@@ -88,6 +88,8 @@ Per confronto, il pilota esperto IDM integrato in MetaDrive ottiene un reward me
 3. test di integrazione ROS 2 reale (`test/ros_integration_test.sh`, 10 test): `brain_node` e `metadrive_bridge.py` comunicano via topic. Fallisce se c'è una collisione o se un arresto cade fuori da 4.8–5.2 m;
 4. prova rapida di addestramento e valutazione PPO.
 
+Risultati del test di integrazione ROS 2 reale in CI (28/10/2026, `brain_node` C++ compilato, 10 test): 0 collisioni, arresti fra 4.87 e 5.05 m, WCET del tick 0.565 ms. Negli arresti sotto i 5 m interviene `ApolloEmergencyStop` (pedale −1.0).
+
 Il test di integrazione si lancia anche a mano, dopo `colcon build` e `source install/setup.bash`:
 
 ```bash
