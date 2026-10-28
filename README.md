@@ -1,8 +1,10 @@
 # iseauto_bt: Milestone v1
 
+🇬🇧 [English version](README.en.md)
+
 Pacchetto ROS 2 Humble per lo shuttle iseAuto: Behavior Tree C++ (BehaviorTree.CPP v3) per il controllo longitudinale, bridge passivo verso il simulatore MetaDrive e agente PPO di confronto.
 
-> **Nota sulla provenienza.** Il codice originale è andato perso. `bt_trees/iseauto_tree.xml` è l'originale recuperato. `src/brain_node.cpp.recuperato` è lo scheletro originale ritrovato. Tutto il resto è stato **ricostruito a partire dalla tesi** (Capitoli 3, 4 e 5). I numeri riportati nella tesi (0/50 collisioni, reward PPO +102.22, ecc.) vengono dalle esecuzioni originali. Il codice ricostruito non li riprodurrà necessariamente identici.
+> **Nota sulla provenienza.** Il codice originale è andato perso. `bt_trees/iseauto_tree.xml` è l'originale recuperato. `src/brain_node.cpp.recuperato` è lo scheletro originale ritrovato. Tutto il resto è stato **ricostruito a partire dalla tesi**. I risultati riportati nella versione finale della tesi (Capitolo 5) sono quelli prodotti da questo codice, e si possono rigenerare con i comandi qui sotto.
 
 ## Struttura
 
@@ -70,7 +72,7 @@ python3 scripts/eval_ppo.py --episodes 50        # collisioni, reward medio, tem
 python test/sim_senza_ros.py scripts 50
 ```
 
-Risultati ottenuti il 28/10/2026 (Windows, Python 3.14, MetaDrive 0.4.3 da GitHub, SB3 2.9.2):
+Metodologia: 50 scenari fissi (semi 0–49), un'esecuzione per scenario; i valori sono aggregati sui 50 scenari (tassi, medie, min–max). Il PPO è addestrato su 100 scenari diversi (semi 100–199). Risultati ottenuti il 28/10/2026 (Windows, Python 3.14, MetaDrive 0.4.3 da GitHub, SB3 2.9.2):
 
 | | Behavior Tree (freno calibrato) | PPO, 100 episodi | PPO, 600k passi (~1180 episodi) |
 |---|---|---|---|
@@ -103,7 +105,7 @@ Per confronto, il pilota esperto IDM integrato in MetaDrive ottiene un reward me
 3. test di integrazione ROS 2 reale (`test/ros_integration_test.sh`, 10 test): `brain_node` e `metadrive_bridge.py` comunicano via topic. Fallisce se c'è una collisione o se un arresto cade fuori da 4.8–5.2 m;
 4. prova rapida di addestramento e valutazione PPO.
 
-Risultati del test di integrazione ROS 2 reale in CI (28/10/2026, `brain_node` C++ compilato, 10 test): 0 collisioni, arresti fra 4.87 e 5.05 m, WCET del tick 0.565 ms. Negli arresti sotto i 5 m interviene `ApolloEmergencyStop` (pedale −1.0).
+Risultati del test di integrazione ROS 2 reale in CI (tre esecuzioni dei primi 10 scenari, `brain_node` C++ compilato): 0 collisioni, arresti fra 4.87 e 5.07 m, WCET del tick al massimo 0.565 ms. Negli arresti sotto i 5 m interviene `ApolloEmergencyStop` (pedale −1.0).
 
 Il test di integrazione si lancia anche a mano, dopo `colcon build` e `source install/setup.bash`:
 
@@ -134,3 +136,7 @@ Installazione su Windows: `pip install --no-deps git+https://github.com/metadriv
 - **Passo di simulazione**: `physics_world_step_size=1/60` e `decision_repeat=2` danno un `env.step` di 1/30 s. Così il bridge a 30 Hz gira in tempo reale ed è allineato al tick del BT. Con il default di MetaDrive (0.1 s) la simulazione andrebbe 3 volte più veloce del reale.
 - **Distanza dall'ostacolo**: calcolata geometricamente (paraurti-paraurti) sugli oggetti MetaDrive dentro un corridoio di ±1.75 m davanti allo shuttle, con portata di 50 m.
 - Le chiavi di configurazione (`num_scenarios`, `start_seed`, `spawn_velocity`, `env.agent`) seguono MetaDrive ≥ 0.4. Con versioni più vecchie potrebbero chiamarsi diversamente (`environment_num`, `env.vehicle`).
+
+## Licenza
+
+Distribuito con licenza MIT: vedi [LICENSE](LICENSE).
