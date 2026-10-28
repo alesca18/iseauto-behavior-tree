@@ -27,6 +27,8 @@ def main():
         "action_space": env.action_space,
         "lr_schedule": lambda _: 0.0,
         "clip_range": lambda _: 0.2,
+        "_last_obs": None,              # stato dell'addestramento, inutile in valutazione
+        "_last_episode_starts": None,
     })
 
     collisions, rewards, infer_ms = 0, [], []
