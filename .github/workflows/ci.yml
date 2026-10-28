@@ -26,6 +26,8 @@ jobs:
         run: |
           # torch solo CPU (evita ~2.5 GB di CUDA); numpy<2 perche' i messaggi ROS 2 Humble
           # sono compilati contro NumPy 1.x
+          # il setuptools di Ubuntu 22.04 e' troppo vecchio per il setup.py di MetaDrive
+          pip3 install --upgrade pip setuptools wheel
           pip3 install torch --index-url https://download.pytorch.org/whl/cpu
           pip3 install "numpy<2" "git+https://github.com/metadriverse/metadrive.git" stable-baselines3 tensorboard
           python3 -c "from metadrive.envs import MetaDriveEnv; print('MetaDrive ok')"
