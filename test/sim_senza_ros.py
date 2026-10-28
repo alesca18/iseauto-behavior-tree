@@ -1,13 +1,16 @@
 """Banco di prova senza ROS: metadrive_bridge.py reale + replica Python di brain_node.cpp.
 
-Uso: python test/sim_senza_ros.py scripts [episodi]
+Uso: python test/sim_senza_ros.py scripts [episodi] [--render]
+  --render  apre la finestra 3D di MetaDrive e rallenta il test al tempo reale (30 Hz)
 """
 import sys
 import time
 import types
 
-SCRIPTS = sys.argv[1]
-EPISODES = int(sys.argv[2]) if len(sys.argv) > 2 else 50
+RENDER = "--render" in sys.argv
+_pos = [a for a in sys.argv[1:] if not a.startswith("--")]
+SCRIPTS = _pos[0]
+EPISODES = int(_pos[1]) if len(_pos) > 1 else 50
 sys.path.insert(0, SCRIPTS)
 
 # ---- stub minimi di rclpy / std_msgs / geometry_msgs ----
@@ -123,7 +126,7 @@ class Args:
     episodes = EPISODES
     seed = 0
     rate = 30.0
-    headless = True
+    headless = not RENDER
 
 
 bridge = mb.MetaDriveBridge(Args())
@@ -139,6 +142,8 @@ try:
         bridge.on_cmd(brain.cmd)
         bridge.step()
         sim_clock[0] += SIM_DT
+        if RENDER:  # tempo reale, altrimenti la scena scorre troppo veloce per seguirla
+            time.sleep(max(0.0, t_start + sim_clock[0] - time.time()))
 except SystemExit:
     pass
 finally:

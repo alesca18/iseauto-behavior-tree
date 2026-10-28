@@ -40,6 +40,21 @@ ros2 launch iseauto_bt iseauto_v1.launch.py episodes:=50
 Oppure in due terminali: `ros2 run iseauto_bt metadrive_bridge.py --episodes 50` e `ros2 run iseauto_bt brain_node`.
 Al termine il bridge stampa il tasso di collisione e la distanza d'arresto (media/min/max). Il brain stampa ogni 5 s il WCET del tick.
 
+## Vedere la simulazione
+
+La finestra 3D di MetaDrive si apre da sola con il bridge. Senza grafica serve `--headless` (come in CI).
+
+| Cosa | Comando |
+|---|---|
+| Behavior Tree con ROS 2 (Ubuntu / WSL2) | `ros2 launch iseauto_bt iseauto_v1.launch.py episodes:=5` |
+| Behavior Tree senza ROS (anche su Windows) | `python test/sim_senza_ros.py scripts 5 --render` |
+| Agente PPO | `python3 scripts/eval_ppo.py --model models/ppo_iseauto_600k --episodes 5 --render` |
+
+- **Senza ROS:** con `--render` il test va in tempo reale (30 Hz) per poterlo seguire. Senza l'opzione gira alla massima velocità e senza finestra.
+- **WSL2 su Windows 11:** la finestra appare tramite WSLg, senza configurare nulla. Se non si apre, controlla che `echo $DISPLAY` non sia vuoto e aggiorna WSL con `wsl --update` da PowerShell.
+- **Su un server o in un container senza schermo:** usa `--headless`.
+- **Requisito per la finestra:** MetaDrive richiede `panda3d-gltf` tra la 0.13 e la 1.0. Con la 1.x il test senza grafica funziona, ma la finestra si blocca con `Could not load Actor model ... scene.gltf`. Per correggere: `pip install "panda3d-gltf>=0.13,<1.0"`.
+
 ## Agente PPO
 
 ```bash
