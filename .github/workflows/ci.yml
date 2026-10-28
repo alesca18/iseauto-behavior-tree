@@ -20,7 +20,8 @@ jobs:
       - name: Dipendenze di sistema
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ros-humble-behaviortree-cpp-v3 python3-pip git
+          apt-get install -y --no-install-recommends ros-humble-behaviortree-cpp-v3 python3-pip git \
+            libgl1 libegl1 libglib2.0-0 libsm6 libxext6 libxrender1
 
       - name: Dipendenze Python (MetaDrive da GitHub, Stable Baselines 3)
         run: |
