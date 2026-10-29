@@ -5,3 +5,5 @@ install/
 log/
 logs/
 brain.log
+models/*.zip
+!models/ppo_iseauto_600k.zip

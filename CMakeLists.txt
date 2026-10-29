@@ -24,6 +24,6 @@ install(PROGRAMS
   scripts/eval_ppo.py
   scripts/kill_ghosts.sh
   DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY bt_trees launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY bt_trees launch assets DESTINATION share/${PROJECT_NAME})
 
 ament_package()

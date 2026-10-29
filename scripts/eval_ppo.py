@@ -31,7 +31,7 @@ def main():
         "_last_episode_starts": None,
     })
 
-    collisions, rewards, infer_ms = 0, [], []
+    collisions, arrived, off_road, rewards, infer_ms = 0, 0, 0, [], []
     for ep in range(args.episodes):
         obs, _ = env.reset(seed=args.seed + ep)
         done, total, crashed = False, 0.0, False
@@ -44,11 +44,14 @@ def main():
             crashed = crashed or is_crash(info)
             done = terminated or truncated
         collisions += int(crashed)
+        arrived += int(bool(info.get("arrive_dest")))
+        off_road += int(bool(info.get("out_of_road")) and not info.get("arrive_dest"))
         rewards.append(total)
         print(f"Test {ep + 1}/{args.episodes}: reward {total:+.2f} {'COLLISIONE' if crashed else ''}")
 
     n = args.episodes
     print(f"\nCollisioni: {collisions}/{n} ({100.0 * collisions / n:.1f}%)")
+    print(f"Arrivi a destinazione: {arrived}/{n}, uscite di strada: {off_road}/{n}")
     print(f"Reward medio: {sum(rewards) / n:+.2f}")
     print(f"Tempo di inferenza per passo: medio {sum(infer_ms) / len(infer_ms):.2f} ms, "
           f"max {max(infer_ms):.2f} ms")

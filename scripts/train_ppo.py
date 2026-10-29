@@ -11,6 +11,7 @@ import sys
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, StopTrainingOnMaxEpisodes
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.utils import set_random_seed
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scenario import IseAutoEnv, make_config  # noqa: E402
@@ -42,6 +43,8 @@ def main():
                         help="se indicato, addestra per questo numero di passi invece che per --episodes")
     parser.add_argument("--scenarios", type=int, default=100, help="scenari MetaDrive distinti")
     parser.add_argument("--seed", type=int, default=100, help="seed distinti da quelli di test")
+    parser.add_argument("--ppo-seed", type=int, default=None,
+                        help="seed della rete e del campionamento PPO (default: --seed)")
     parser.add_argument("--out", default="models/ppo_iseauto")
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--n-steps", type=int, default=1024, help="passi raccolti per ogni aggiornamento")
@@ -53,9 +56,14 @@ def main():
     env = Monitor(IseAutoEnv(make_config(seed=args.seed, num_scenarios=args.scenarios)))
     print("Spazio delle osservazioni:", env.observation_space.shape)
 
+    # SB3 passa il seed anche a env.reset(), dove MetaDrive lo interpreta come indice di scenario:
+    # un --ppo-seed diverso inizializza quindi solo rete e campionamento, senza toccare gli scenari.
+    if args.ppo_seed is not None:
+        set_random_seed(args.ppo_seed)
     model = PPO("MlpPolicy", env, learning_rate=args.lr, n_steps=args.n_steps,
                 batch_size=args.batch_size, n_epochs=args.n_epochs, ent_coef=args.ent_coef,
-                gamma=0.99, verbose=0, seed=args.seed, tensorboard_log="logs/ppo")
+                gamma=0.99, verbose=0,
+                seed=args.seed if args.ppo_seed is None else None, tensorboard_log="logs/ppo")
     if args.timesteps:
         model.learn(total_timesteps=args.timesteps, callback=ProgressReport(every=100))
     else:
