@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scenario import IseAutoEnv, make_config, get_ego, is_crash  # noqa: E402
 
 NO_OBSTACLE = 999.0
-CORRIDOR_HALF_WIDTH = 1.75   # meta' corsia [m]
+LATERAL_MARGIN = 0.5         # margine di sicurezza su ciascun lato dello shuttle [m]
 SENSOR_RANGE = 50.0          # portata del LiDAR virtuale [m]
 CMD_TIMEOUT = 0.5            # [s] senza comandi => freno
 STOP_SPEED_KMH = 0.5
@@ -36,10 +36,15 @@ def _size(obj, attr, fallback):
 
 
 def closest_obstacle_ahead(env, ego):
-    """Distanza (paraurti-paraurti) dall'oggetto piu' vicino nel corridoio di avanzamento."""
+    """Distanza (paraurti-paraurti) dall'oggetto piu' vicino nel corridoio di avanzamento.
+
+    Il corridoio e' largo quanto lo shuttle piu' LATERAL_MARGIN per lato: un oggetto conta se
+    la sua sagoma entra in questa fascia (per lo shuttle da 1.50 m: |y| < 1.25 m + meta' oggetto).
+    """
     ex, ey = ego.position
     c, s = math.cos(ego.heading_theta), math.sin(ego.heading_theta)
     ego_half_len = _size(ego, "top_down_length", 4.5) / 2.0
+    corridor_half = _size(ego, "top_down_width", 1.5) / 2.0 + LATERAL_MARGIN
     best = NO_OBSTACLE
     for obj in env.engine.get_objects().values():
         if obj is ego or not hasattr(obj, "position"):
@@ -49,7 +54,7 @@ def closest_obstacle_ahead(env, ego):
         y = -dx * s + dy * c       # laterale nel frame ego
         half_w = _size(obj, "top_down_width", 1.0) / 2.0
         half_len = _size(obj, "top_down_length", 1.0) / 2.0
-        if x <= 0.0 or abs(y) > CORRIDOR_HALF_WIDTH + half_w:
+        if x <= 0.0 or abs(y) > corridor_half + half_w:
             continue
         gap = max(0.0, x - ego_half_len - half_len)
         if gap <= SENSOR_RANGE:
@@ -71,7 +76,8 @@ class MetaDriveBridge(Node):
 
         self.env = IseAutoEnv(make_config(render=not args.headless, seed=args.seed,
                                             num_scenarios=args.episodes))
-        self.env.reset()
+        # seme esplicito: senza, MetaDrive estrae a caso uno scenario nell'intervallo a ogni reset
+        self.env.reset(seed=args.seed)
         self.get_logger().info(f"MetaDrive avviato, osservazione {self.env.observation_space.shape}")
 
         self.episode = 0
@@ -138,7 +144,7 @@ class MetaDriveBridge(Node):
         if self.episode >= self.args.episodes:
             self.print_summary()
             raise SystemExit
-        self.env.reset()
+        self.env.reset(seed=self.args.seed + self.episode)   # test i -> scenario seed + i
         self._reset_episode_state()
 
     def print_summary(self):
