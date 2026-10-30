@@ -89,9 +89,17 @@ def grab(env):
     return img.reshape(tex.getYSize(), tex.getXSize(), 3)[::-1]
 
 
-def overlay(frame, seed, d, pedal, node, kmh):
+def overlay(frame, seed, d, pedal, node, kmh, fast=False, banner=None):
     img = Image.fromarray(frame)
     dr = ImageDraw.Draw(img, "RGBA")
+    if fast:
+        dr.rounded_rectangle((1150, 640, 1260, 700), 10, fill=(0, 0, 0, 165))
+        dr.text((1172, 650), "x3", font=F_BIG, fill="white")
+    if banner:
+        tw = dr.textlength(banner, font=F_BIG)
+        x = (img.width - tw) / 2
+        dr.rounded_rectangle((x - 24, 600, x + tw + 24, 660), 12, fill=(20, 110, 60, 220))
+        dr.text((x, 612), banner, font=F_BIG, fill="white")
     dr.rounded_rectangle((16, 16, 560, 214), 12, fill=(0, 0, 0, 165))
     dr.text((32, 26), f"Behavior Tree - scenario {seed}", font=F_BIG, fill="white")
     color = (255, 120, 90) if "Emergency" in node else (255, 210, 90) if "Stop" in node else (120, 230, 140)
@@ -124,15 +132,21 @@ def card(w, h, lines, n_frames):
 def record(seed, writer, max_s, hold_s):
     cfg = make_config(render=True, seed=seed, num_scenarios=1)
     cfg["window_size"] = (1280, 720)
+    cfg["show_fps"] = False
+    # i marcatori di navigazione (cubi turchesi) sembrerebbero ostacoli nel video
+    cfg["vehicle_config"].update(show_navi_mark=False, show_dest_mark=False, show_line_to_dest=False)
     env = IseAutoEnv(cfg)
     env.reset()
     ego, brain = get_ego(env), Brain()
-    stopped_for, after_stop, result = 0.0, 0.0, "fine episodio"
-    for _ in range(int(max_s * FPS)):
+    stopped_for, after_stop, result, banner = 0.0, 0.0, "fine episodio", None
+    for k in range(int(max_s * FPS)):
         d = closest_obstacle_ahead(env, ego)
         pedal, node = brain.tick(d)
         _, _, term, trunc, info = env.step([0.0, pedal])
-        writer.append_data(overlay(grab(env), seed, d, pedal, node, ego.speed_km_h))
+        # tratti di sola crociera (nessun ostacolo entro 45 m) accelerati x3 per accorciare il video
+        fast = d >= 45.0 and pedal == CRUISE and ego.speed_km_h > 1.0
+        if not fast or k % 3 == 0:
+            writer.append_data(overlay(grab(env), seed, d, pedal, node, ego.speed_km_h, fast, banner))
         if is_crash(info):
             result = "COLLISIONE"
             break
@@ -140,33 +154,36 @@ def record(seed, writer, max_s, hold_s):
             result = "arrivo a destinazione" if info.get("arrive_dest") else "fine episodio"
             break
         stopped_for = stopped_for + DT if (ego.speed_km_h < 0.5 and d < START) else 0.0
-        if stopped_for >= 2.0:
+        if stopped_for >= 1.0:
             after_stop += DT
             result = f"arresto a {d:.2f} m"
+            banner = f"Fermo a {d:.2f} m dall'ostacolo, nessuna collisione"
             if after_stop >= hold_s:
                 break
+    else:
+        result = "prosegue (tempo di ripresa esaurito)"
     env.close()
     return result
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--seeds", type=int, nargs="+", default=[0, 2, 4])
+    ap.add_argument("--seeds", type=int, nargs="+", default=[49, 14, 4])
     ap.add_argument("--out", default=os.path.join(HERE, "..", "media", "milestone_v1.mp4"))
-    ap.add_argument("--max-seconds", type=float, default=40.0, help="durata massima per scenario")
-    ap.add_argument("--hold", type=float, default=2.0, help="secondi mostrati dopo l'arresto")
+    ap.add_argument("--max-seconds", type=float, default=32.0, help="durata massima per scenario")
+    ap.add_argument("--hold", type=float, default=3.0, help="secondi mostrati dopo l'arresto")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     w, h = 1280, 720
-    with imageio.get_writer(args.out, fps=FPS, codec="libx264", quality=7, macro_block_size=8,
-                            ffmpeg_params=["-pix_fmt", "yuv420p"]) as writer:
+    with imageio.get_writer(args.out, fps=FPS, codec="libx264", quality=None, macro_block_size=8,
+                            ffmpeg_params=["-crf", "28", "-preset", "slow"]) as writer:
         for f in card(w, h, ["Shuttle iseAuto - Milestone v1",
                              "Behavior Tree C++ (BehaviorTree.CPP v3) + ROS 2 + MetaDrive",
                              "Crociera a 20 km/h, frenata progressiva da 30 m, arresto a 5 m"], 3 * FPS):
             writer.append_data(f)
         for seed in args.seeds:
-            for f in card(w, h, [f"Scenario {seed}", "ostacolo fermo sulla corsia"], int(1.5 * FPS)):
+            for f in card(w, h, [f"Scenario {seed}", "MetaDrive, seme fisso"], int(1.5 * FPS)):
                 writer.append_data(f)
             res = record(seed, writer, args.max_seconds, args.hold)
             print(f"scenario {seed}: {res}", flush=True)

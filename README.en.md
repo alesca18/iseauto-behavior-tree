@@ -6,7 +6,13 @@ ROS 2 Humble package for the iseAuto shuttle: a C++ Behavior Tree (BehaviorTree.
 
 This is the code of the bachelor's thesis *"Modellazione e analisi di alberi di comportamento per la guida autonoma"* (Universitas Mercatorum). The thesis is written in Italian; this README is enough to build, run and reproduce the results.
 
-> **Provenance.** The original code was lost. `bt_trees/iseauto_tree.xml` is the recovered original. `src/brain_node.cpp.recuperato` is the recovered original skeleton. Everything else was **rebuilt from the thesis**. The results reported in the final version of the thesis (Chapter 5) are the ones produced by this code, and can be regenerated with the commands below.
+> **Provenance.** The original code was lost. `bt_trees/iseauto_tree.xml` is the recovered original. `src/brain_node.cpp.recuperato` is the recovered original skeleton. Everything else was **rebuilt from the thesis**. The results reported in the submitted thesis (Chapter 5) are the ones produced by the code at tag [`tesi`](https://github.com/alesca18/iseauto-behavior-tree/tree/tesi); later fixes are described in [Differences from the thesis](#differences-from-the-thesis).
+
+## Video
+
+[![iseAuto shuttle driven by the Behavior Tree in MetaDrive](media/milestone_v1.jpg)](media/milestone_v1.mp4)
+
+Scenarios 49 and 14: obstacle in the lane, progressive braking and stop at about 5 m. Scenario 4: cones in the adjacent lane, the shuttle keeps going. Overlay: active tree node, distance, speed and pedal. Cruise-only stretches are sped up x3. To regenerate it: `python tools/record_video.py` (needs `pip install imageio imageio-ffmpeg`).
 
 ## Layout
 
@@ -84,10 +90,10 @@ Methodology: 50 fixed scenarios (seeds 0–49), one run per scenario; values are
 | | Behavior Tree (calibrated brake) | PPO, 100 episodes (seeds 0 / 1 / 2) | PPO, 600k steps (seeds 0 / 1 / 2) |
 |---|---|---|---|
 | Collisions over 50 tests | 0/50 | 0 / 0 / 0 (always leaves the road before reaching obstacles) | 1 / 6 / 18 (mean 17%) |
-| Outcome | 33 stops, 17 arrivals at destination | 50 off-road in all three | arrivals 49 / 32 / 17, off-road 0 / 12 / 15 |
-| Stopping distance | 5.05 m mean (5.03–5.08), std 0.018 m | - | - |
+| Outcome | 36 stops, 14 arrivals at destination | 50 off-road in all three | arrivals 49 / 32 / 17, off-road 0 / 12 / 15 |
+| Stopping distance | 5.05 m mean (5.03–5.08), std 0.017 m | - | - |
 | Mean evaluation reward | - | +24.0 / +29.3 / +20.7 | +441.7 / +352.2 / +313.2 (mean +369.0) |
-| Time per decision | 0.51 ms max (Python port) | 0.2–0.3 ms mean, ≤ 1.6 ms max | 0.2–0.3 ms mean, ≤ 3.0 ms max |
+| Time per decision | 0.34 ms max (Python port) | 0.2–0.3 ms mean, ≤ 1.6 ms max | 0.2–0.3 ms mean, ≤ 3.0 ms max |
 
 The PPO hyperparameters (`n_steps=1024`, `lr=5e-4`) are the best of 5 configurations tried in a preliminary phase with MetaDrive's generic vehicle. Mean reward during the long training run with seed 0, in blocks of 100 episodes:
 
@@ -106,6 +112,21 @@ done
 
 For reference, MetaDrive's built-in expert driver (IDM) gets 49 arrivals, 0 collisions and a mean reward of +440.7 on the same 50 scenarios.
 
+### Differences from the thesis
+
+Two things were fixed in the bridge after submission. The exact thesis code is still available at tag `tesi` (`git checkout tesi`).
+
+1. **Fixed-seed scenarios.** The bridge called `env.reset()` without a seed, and in that case MetaDrive draws a random scenario from the range at every reset. The 50 Behavior Tree tests reported in the thesis are therefore 50 random draws among seeds 0–49, not each seed once (some repeated, some missing), and the counts of stops and arrivals changed from run to run. Now test *i* uses seed `seed + i` and two runs give the same result. The PPO evaluations already passed the seed explicitly and do not change.
+2. **Sensor corridor.** The corridor was as wide as the lane (±1.75 m): in some scenarios the shuttle stopped for cones closing the adjacent lane, which it would have passed with about 0.9 m of clearance. Now the corridor is as wide as the shuttle plus 0.5 m per side (±1.25 m).
+
+| Behavior Tree, 50 scenarios | Thesis (tag `tesi`) | Current code |
+|---|---|---|
+| Collisions | 0/50 | 0/50 |
+| Outcome | 33 stops, 17 arrivals (random draws) | 36 stops, 14 arrivals (seeds 0–49) |
+| Stopping distance | 5.05 m (5.03–5.08), std 0.018 m | 5.05 m (5.03–5.08), std 0.017 m |
+
+The thesis conclusions do not change: no collisions and a stop at 5 m within a few centimetres.
+
 ## Continuous integration (GitHub Actions)
 
 `.github/workflows/ci.yml` runs on every push in a `ros:humble` container (Ubuntu 22.04):
@@ -115,7 +136,7 @@ For reference, MetaDrive's built-in expert driver (IDM) gets 49 arrivals, 0 coll
 3. real ROS 2 integration test (`test/ros_integration_test.sh`, 10 scenarios): `brain_node` and `metadrive_bridge.py` talk over topics. It fails on any collision or if a stop falls outside 4.8–5.2 m;
 4. quick PPO training and evaluation run.
 
-Results of the real ROS 2 integration test in CI (three runs of the first 10 scenarios, compiled C++ `brain_node`): 0 collisions, 6 / 6 / 8 stops between 4.89 and 5.08 m, tick WCET at most 0.28 ms. In stops below 5 m, `ApolloEmergencyStop` kicks in (pedal −1.0).
+Results of the real ROS 2 integration test in CI (three runs of the first 10 scenarios, compiled C++ `brain_node`): 0 collisions; all three have the same 6 stops (scenarios 0, 2, 3, 5, 8, 9) between 4.89 and 5.05 m and 4 arrivals; tick WCET at most 0.29 ms. (In the thesis, with randomly drawn scenarios: 6 / 6 / 8 stops between 4.89 and 5.08 m.) In stops below 5 m, `ApolloEmergencyStop` kicks in (pedal −1.0).
 
 The integration test can also be run by hand, after `colcon build` and `source install/setup.bash`:
 
@@ -145,7 +166,7 @@ Windows installation: `pip install --no-deps git+https://github.com/metadriverse
 - **Speed**: the 0.40 pedal is constant, so cruise speed is capped at 20 km/h by `IseAutoEnv` (`scenario.py`). In MetaDrive `max_speed_km_h` is a vehicle-type parameter, not a `vehicle_config` key.
 - **Simulation step**: `physics_world_step_size=1/60` and `decision_repeat=2` give an `env.step` of 1/30 s, so the 30 Hz bridge runs in real time, aligned with the BT tick. With MetaDrive's default (0.1 s) the simulation would run 3 times faster than real time.
 - **Vehicle**: `IseAutoVehicle` (in `scenario.py`) inherits from MetaDrive's `DefaultVehicle` with the real shuttle's dimensions, mass, wheels and 3D model, and is registered as `vehicle_model="iseauto"`. MetaDrive's sources are not modified and traffic keeps the default vehicles. With rendering on, `scenario.py` copies `assets/iseauto/` into `metadrive/assets/models/iseauto/`, where MetaDrive looks for models.
-- **Obstacle distance**: computed geometrically (bumper to bumper) on the MetaDrive objects inside a ±1.75 m corridor ahead of the shuttle, with a 50 m range.
+- **Obstacle distance**: computed geometrically (bumper to bumper) on the MetaDrive objects inside the corridor the shuttle sweeps as it moves, widened by 0.5 m per side (±1.25 m for the 1.50 m wide shuttle, plus half the object's width), with a 50 m range. A first version used a corridor as wide as the lane (±1.75 m) and also stopped the shuttle for cones closing the adjacent lane.
 - The configuration keys (`num_scenarios`, `start_seed`, `spawn_velocity`, `env.agent`) follow MetaDrive ≥ 0.4. Older versions may use different names (`environment_num`, `env.vehicle`).
 
 ## License

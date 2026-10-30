@@ -4,7 +4,13 @@
 
 Pacchetto ROS 2 Humble per lo shuttle iseAuto: Behavior Tree C++ (BehaviorTree.CPP v3) per il controllo longitudinale, bridge passivo verso il simulatore MetaDrive e agente PPO di confronto.
 
-> **Nota sulla provenienza.** Il codice originale è andato perso. `bt_trees/iseauto_tree.xml` è l'originale recuperato. `src/brain_node.cpp.recuperato` è lo scheletro originale ritrovato. Tutto il resto è stato **ricostruito a partire dalla tesi**. I risultati riportati nella versione finale della tesi (Capitolo 5) sono quelli prodotti da questo codice, e si possono rigenerare con i comandi qui sotto.
+> **Nota sulla provenienza.** Il codice originale è andato perso. `bt_trees/iseauto_tree.xml` è l'originale recuperato. `src/brain_node.cpp.recuperato` è lo scheletro originale ritrovato. Tutto il resto è stato **ricostruito a partire dalla tesi**. I risultati riportati nella tesi consegnata (Capitolo 5) sono quelli prodotti dal codice al tag [`tesi`](https://github.com/alesca18/iseauto-behavior-tree/tree/tesi); le correzioni successive sono descritte in [Differenze rispetto alla tesi](#differenze-rispetto-alla-tesi).
+
+## Video
+
+[![Shuttle iseAuto guidato dal Behavior Tree in MetaDrive](media/milestone_v1.jpg)](media/milestone_v1.mp4)
+
+Scenari 49 e 14: ostacolo sulla corsia, frenata progressiva e arresto a circa 5 m. Scenario 4: coni sulla corsia adiacente, lo shuttle prosegue. In sovrimpressione: nodo attivo dell'albero, distanza, velocità e pedale. I tratti di sola crociera sono accelerati x3. Per rigenerarlo: `python tools/record_video.py` (richiede `pip install imageio imageio-ffmpeg`).
 
 ## Struttura
 
@@ -80,10 +86,10 @@ Metodologia: 50 scenari fissi (semi 0–49), un'esecuzione per scenario; i valor
 | | Behavior Tree (freno calibrato) | PPO, 100 episodi (semi 0 / 1 / 2) | PPO, 600k passi (semi 0 / 1 / 2) |
 |---|---|---|---|
 | Collisioni su 50 test | 0/50 | 0 / 0 / 0 (esce sempre di strada prima degli ostacoli) | 1 / 6 / 18 (media 17%) |
-| Esito | 33 arresti, 17 arrivi | 50 uscite di strada in tutti e tre | arrivi 49 / 32 / 17, uscite di strada 0 / 12 / 15 |
-| Distanza d'arresto | 5.05 m media (5.03–5.08), std 0.018 m | - | - |
+| Esito | 36 arresti, 14 arrivi | 50 uscite di strada in tutti e tre | arrivi 49 / 32 / 17, uscite di strada 0 / 12 / 15 |
+| Distanza d'arresto | 5.05 m media (5.03–5.08), std 0.017 m | - | - |
 | Reward medio in valutazione | - | +24.0 / +29.3 / +20.7 | +441.7 / +352.2 / +313.2 (media +369.0) |
-| Tempo per decisione | 0.51 ms max (replica Python) | 0.2–0.3 ms medio, ≤ 1.6 ms max | 0.2–0.3 ms medio, ≤ 3.0 ms max |
+| Tempo per decisione | 0.34 ms max (replica Python) | 0.2–0.3 ms medio, ≤ 1.6 ms max | 0.2–0.3 ms medio, ≤ 3.0 ms max |
 
 Gli iperparametri del PPO (`n_steps=1024`, `lr=5e-4`) sono i migliori tra 5 configurazioni provate in una fase preliminare con il veicolo generico di MetaDrive. Andamento del reward medio durante l'addestramento lungo con seme 0, per blocchi di 100 episodi:
 
@@ -102,6 +108,21 @@ done
 
 Per confronto, il pilota esperto IDM integrato in MetaDrive ottiene sugli stessi 50 scenari 49 arrivi, 0 collisioni e un reward medio di +440.7.
 
+### Differenze rispetto alla tesi
+
+Dopo la consegna sono state corrette due cose nel bridge. Il codice esatto della tesi resta disponibile al tag `tesi` (`git checkout tesi`).
+
+1. **Scenari a seme fisso.** Il bridge chiamava `env.reset()` senza seme, e in quel caso MetaDrive estrae a caso uno scenario dell'intervallo a ogni reset. I 50 test del Behavior Tree riportati nella tesi sono quindi 50 estrazioni casuali tra i semi 0–49, non ciascun seme una volta (alcuni ripetuti, altri assenti), e i conteggi di arresti e arrivi cambiavano da un'esecuzione all'altra. Ora il test *i* usa il seme `seed + i` e due esecuzioni danno lo stesso risultato. Le valutazioni del PPO passavano già il seme esplicitamente e non cambiano.
+2. **Corridoio del sensore.** Il corridoio era largo quanto la corsia (±1.75 m): in alcuni scenari lo shuttle si fermava davanti ai coni che chiudono la corsia adiacente, che avrebbe superato con circa 0.9 m di spazio. Ora il corridoio è largo quanto lo shuttle più 0.5 m per lato (±1.25 m).
+
+| Behavior Tree, 50 scenari | Tesi (tag `tesi`) | Codice attuale |
+|---|---|---|
+| Collisioni | 0/50 | 0/50 |
+| Esito | 33 arresti, 17 arrivi (estrazioni casuali) | 36 arresti, 14 arrivi (semi 0–49) |
+| Distanza d'arresto | 5.05 m (5.03–5.08), std 0.018 m | 5.05 m (5.03–5.08), std 0.017 m |
+
+Le conclusioni della tesi non cambiano: nessuna collisione e arresto a 5 m con pochi centimetri di variazione.
+
 ## Integrazione continua (GitHub Actions)
 
 `.github/workflows/ci.yml` gira a ogni push in un container `ros:humble` (Ubuntu 22.04):
@@ -111,7 +132,7 @@ Per confronto, il pilota esperto IDM integrato in MetaDrive ottiene sugli stessi
 3. test di integrazione ROS 2 reale (`test/ros_integration_test.sh`, 10 test): `brain_node` e `metadrive_bridge.py` comunicano via topic. Fallisce se c'è una collisione o se un arresto cade fuori da 4.8–5.2 m;
 4. prova rapida di addestramento e valutazione PPO.
 
-Risultati del test di integrazione ROS 2 reale in CI (tre esecuzioni dei primi 10 scenari, `brain_node` C++ compilato): 0 collisioni, 6 / 6 / 8 arresti fra 4.89 e 5.08 m, WCET del tick al massimo 0.28 ms. Negli arresti sotto i 5 m interviene `ApolloEmergencyStop` (pedale −1.0).
+Risultati del test di integrazione ROS 2 reale in CI (tre esecuzioni dei primi 10 scenari, `brain_node` C++ compilato): 0 collisioni; in tutte e tre gli stessi 6 arresti (scenari 0, 2, 3, 5, 8, 9) fra 4.89 e 5.05 m e 4 arrivi; WCET del tick al massimo 0.29 ms. (Nella tesi, con gli scenari estratti a caso: 6 / 6 / 8 arresti fra 4.89 e 5.08 m.) Negli arresti sotto i 5 m interviene `ApolloEmergencyStop` (pedale −1.0).
 
 Il test di integrazione si lancia anche a mano, dopo `colcon build` e `source install/setup.bash`:
 
@@ -141,7 +162,7 @@ Installazione su Windows: `pip install --no-deps git+https://github.com/metadriv
 - **Velocità**: il pedale 0.40 è costante, quindi la velocità di crociera è limitata a 20 km/h da `IseAutoEnv` (`scenario.py`). In MetaDrive `max_speed_km_h` è un parametro del tipo di veicolo, non una chiave di `vehicle_config`.
 - **Passo di simulazione**: `physics_world_step_size=1/60` e `decision_repeat=2` danno un `env.step` di 1/30 s. Così il bridge a 30 Hz gira in tempo reale ed è allineato al tick del BT. Con il default di MetaDrive (0.1 s) la simulazione andrebbe 3 volte più veloce del reale.
 - **Veicolo**: `IseAutoVehicle` (in `scenario.py`) eredita da `DefaultVehicle` di MetaDrive con dimensioni, massa, ruote e modello 3D dello shuttle reale, ed è registrato come `vehicle_model="iseauto"`. I sorgenti di MetaDrive non vengono modificati e il traffico resta quello predefinito. Con la grafica attiva, `scenario.py` copia `assets/iseauto/` in `metadrive/assets/models/iseauto/`, dove MetaDrive cerca i modelli.
-- **Distanza dall'ostacolo**: calcolata geometricamente (paraurti-paraurti) sugli oggetti MetaDrive dentro un corridoio di ±1.75 m davanti allo shuttle, con portata di 50 m.
+- **Distanza dall'ostacolo**: calcolata geometricamente (paraurti-paraurti) sugli oggetti MetaDrive dentro il corridoio che lo shuttle occupa avanzando, allargato di 0.5 m per lato (±1.25 m per lo shuttle da 1.50 m, più metà della larghezza dell'oggetto), con portata di 50 m. Una prima versione usava un corridoio largo quanto la corsia (±1.75 m) e fermava lo shuttle anche davanti ai coni che chiudono la corsia adiacente.
 - Le chiavi di configurazione (`num_scenarios`, `start_seed`, `spawn_velocity`, `env.agent`) seguono MetaDrive ≥ 0.4. Con versioni più vecchie potrebbero chiamarsi diversamente (`environment_num`, `env.vehicle`).
 
 ## Licenza
